@@ -1,0 +1,175 @@
+version: 2
+
+models:
+  - name: stg_listings
+    description: >
+      Typed and cleaned staging view over raw.listings. One row per
+      (_city, scrape_id, id); no rows are filtered. Raw text is preserved for
+      price, bathrooms_text, amenities, and license, with derived columns added
+      alongside. Dates are cast only when the value is ISO-formatted and valid
+      in PostgreSQL. Materialized as a view because it is a thin 1:1
+      transformation over an already-materialized raw table.
+    columns:
+      - name: id
+        description: Listing identifier. Kept as TEXT because it is an identifier.
+        data_tests:
+          - not_null
+      - name: scrape_id
+        description: Snapshot identifier. Kept as TEXT because it is an identifier.
+        data_tests:
+          - not_null
+      - name: _city
+        description: Pipeline-owned city or region label.
+        data_tests:
+          - not_null
+      - name: _source_file
+        description: Pipeline-owned source CSV filename.
+        data_tests:
+          - not_null
+      - name: _file_hash
+        description: Pipeline-owned SHA-256 hash of the source file.
+        data_tests:
+          - not_null
+      - name: _loaded_at
+        description: Pipeline-owned timestamp when the snapshot was loaded.
+        data_tests:
+          - not_null
+      - name: last_scraped
+        description: >
+          Date the listing was scraped. Cast only when the source value is ISO
+          YYYY-MM-DD and passes PostgreSQL date validation.
+        data_tests:
+          - not_null
+      - name: calendar_last_scraped
+        description: Date the calendar was last scraped, using the same safe date cast.
+      - name: first_review
+        description: Date of the first review, or null when the listing has no reviews.
+      - name: last_review
+        description: Date of the most recent review, or null when the listing has no reviews.
+      - name: host_since
+        description: Date the host joined. Entirely null in the current snapshots.
+      - name: price_quote_checkin_date
+        description: Check-in date used for the source price quote.
+      - name: price_quote_checkout_date
+        description: Check-out date used for the source price quote.
+      - name: calendar_updated
+        description: >
+          Kept as TEXT. All current values are null and the source does not
+          provide reliable date semantics, so no DATE cast is attempted.
+      - name: room_type
+        description: Room type as published by the source.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Entire home/apt
+                  - Private room
+                  - Shared room
+                  - Hotel room
+      - name: price_raw
+        description: Exact source price text, including the currency marker.
+      - name: price_eur
+        description: >
+          Parsed nightly price as NUMERIC(12,2). The value is EUR because
+          price_quote_raw reports "currency": "EUR"; the "$" glyph is a source
+          formatting artifact and no currency conversion is performed.
+      - name: price_currency
+        description: Currency marker for a successfully parsed price; always EUR today.
+      - name: price_parse_status
+        description: Parse outcome for price (ok, null, or invalid).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - ok
+                  - "null"
+                  - invalid
+      - name: bathrooms_text
+        description: >
+          Exact source bathroom description, preserving shared/private and
+          half-bath wording.
+      - name: bathrooms_count
+        description: >
+          Numeric bathroom count derived from bathrooms_text. Half-baths are
+          0.5; "No bathroom" is 0; null when the source text is missing.
+      - name: bathroom_type
+        description: >
+          Shared, private, not_specified, none, or unknown. Derived from the
+          source wording; "1 bath" is not guessed to be shared or private.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - shared
+                  - private
+                  - not_specified
+                  - none
+                  - unknown
+      - name: is_half_bath
+        description: True only for half-bath wording variants.
+      - name: bathrooms_parse_status
+        description: Parse outcome for bathrooms_text (ok, null, or invalid).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - ok
+                  - "null"
+                  - invalid
+      - name: amenities_raw
+        description: Exact source JSON array text of amenities.
+      - name: amenities_json
+        description: Parsed JSONB array; [] when the source is missing or empty, null when invalid.
+      - name: amenities_count
+        description: Number of amenities in the parsed array; 0 for empty, null when invalid.
+      - name: amenities_parse_status
+        description: Parse outcome for amenities (ok, empty, or invalid).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - ok
+                  - empty
+                  - invalid
+      - name: license_raw
+        description: Exact source license text.
+      - name: license_has_text
+        description: True when the source license text is non-null and non-blank.
+      - name: license_mentions_exempt
+        description: True when the license text contains the word "exempt".
+      - name: license_mentions_regional
+        description: True when the license text mentions a regional registration number.
+      - name: license_mentions_national
+        description: True when the license text mentions a national registration number.
+      - name: license_flag
+        description: >
+          Descriptive text flag (not_provided, exempt_marker,
+          registration_marker, mixed, or other). This is not a statement about
+          legal compliance, validity, or registration status.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - not_provided
+                  - exempt_marker
+                  - registration_marker
+                  - mixed
+                  - other
+      - name: latitude
+        description: Listing latitude as NUMERIC(9,6).
+      - name: longitude
+        description: Listing longitude as NUMERIC(9,6).
+      - name: host_is_superhost
+        description: Boolean source flag.
+      - name: host_has_profile_pic
+        description: Boolean source flag.
+      - name: host_identity_verified
+        description: Boolean source flag.
+      - name: has_availability
+        description: Boolean source flag.
+      - name: instant_bookable
+        description: Boolean source flag. Entirely null in the current snapshots.
