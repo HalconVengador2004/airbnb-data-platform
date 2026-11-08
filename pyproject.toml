@@ -17,6 +17,10 @@ dependencies = [
 dev = [
     "pytest==9.2.0",
 ]
+dbt = [
+    "dbt-core==1.11.17",
+    "dbt-postgres==1.11.0",
+]
 
 [project.scripts]
 airbnb-pipeline = "airbnb_pipeline.cli:main"
